@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dApp: USDC Transfer</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const TOKEN_ABI = [
+            {
+                "constant": true,
+                "inputs": [{ "name": "_owner", "type": "address" }],
+                "name": "balanceOf",
+                "outputs": [{ "name": "balance", "type": "uint256" }],
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [
+                    { "name": "_to", "type": "address" },
+                    { "name": "_value", "type": "uint256" }
+                ],
+                "name": "transfer",
+                "outputs": [{ "name": "success", "type": "bool" }],
+                "type": "function"
+            }
+        ];
+        const TOKEN_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'; // USDC
+
+        function App() {
+            const [account, setAccount] = useState(null);
+            const [balance, setBalance] = useState('0');
+            const [web3, setWeb3] = useState(null);
+            const [recipient, setRecipient] = useState('');
+            const [amount, setAmount] = useState('');
+
+            async function connectWallet() {
+                if (window.ethereum) {
+                    try {
+                        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                        const web3Instance = new Web3(window.ethereum);
+                        setAccount(accounts[0]);
+                        setWeb3(web3Instance);
+                    } catch (error) {
+                        console.error("Connection failed:", error);
+                    }
+                } else {
+                    alert("Please install Metamask!");
+                }
+            }
+
+            async function fetchBalance() {
+                if (web3 && account) {
+                    const contract = new web3.eth.Contract(TOKEN_ABI, TOKEN_ADDRESS);
+                    const bal = await contract.methods.balanceOf(account).call();
+                    setBalance(web3.utils.fromWei(bal, 'mwei'));
+                }
+            }
+
+            async function transferTokens() {
+                if (web3 && account && recipient && amount) {
+                    const contract = new web3.eth.Contract(TOKEN_ABI, TOKEN_ADDRESS);
+                    const amountWei = web3.utils.toWei(amount, 'mwei');
+                    try {
+                        await contract.methods.transfer(recipient, amountWei).send({ from: account });
+                        alert("Transfer successful!");
+                        fetchBalance();
+                    } catch (error) {
+                        alert("Transfer failed: " + error.message);
+                    }
+                }
+            }
+
+            useEffect(() => {
+                fetchBalance();
+            }, [account, web3]);
+
+            return (
+                <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+                    <h1 className="text-3xl font-bold mb-4">USDC Transfer dApp</h1>
+                    {account ? (
+                        <div className="text-center w-full max-w-md">
+                            <p className="text-lg mb-2">Connected: {account}</p>
+                            <p className="text-lg mb-4">USDC Balance: {balance}</p>
+                            <div className="mb-4">
+                                <input
+                                    type="text"
+                                    placeholder="Recipient address"
+                                    value={recipient}
+                                    onChange={(e) => setRecipient(e.target.value)}
+                                    className="w-full p-2 mb-2 border rounded"
+                                />
+                                <input
+                                    type="number"
+                                    placeholder="Amount (USDC)"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    className="w-full p-2 mb-2 border rounded"
+                                />
+                                <button
+                                    onClick={transferTokens}
+                                    className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                                >
+                                    Send USDC
+                                </button>
+                            </div>
+                            <button
+                                onClick={fetchBalance}
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                            >
+                                Refresh Balance
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={connectWallet}
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        >
+                            Connect Wallet
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
